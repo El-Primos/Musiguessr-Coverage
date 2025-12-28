@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenreService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.service</a> &gt; <span class="el_source">GenreService.java</span></div><h1>GenreService.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.service;
+
+import com.musiguessr.backend.dto.genre.GenreRequestDTO;
+import com.musiguessr.backend.dto.genre.GenreResponseDTO;
+import com.musiguessr.backend.model.Genre;
+import com.musiguessr.backend.repository.GenreRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+@Service
+@RequiredArgsConstructor
+public class GenreService {
+
+    private final GenreRepository genreRepository;
+
+    @Transactional(readOnly = true)
+    public List&lt;GenreResponseDTO&gt; getGenres(String name, Integer limit, Integer offset) {
+<span class="fc" id="L27">        Stream&lt;Genre&gt; stream = genreRepository.findAll().stream();</span>
+
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">        if (name != null) {</span>
+<span class="fc" id="L30">            String needle = name.trim().toLowerCase();</span>
+<span class="pc bpc" id="L31" title="2 of 4 branches missed.">            stream = stream.filter(p -&gt; p.getName() != null &amp;&amp; p.getName().toLowerCase().contains(needle));</span>
+        }
+
+<span class="pc bpc" id="L34" title="2 of 4 branches missed.">        int safeOffset = (offset == null || offset &lt; 0) ? 0 : offset;</span>
+<span class="pc bpc" id="L35" title="2 of 4 branches missed.">        int safeLimit = (limit == null || limit &lt; 0) ? 50 : limit;</span>
+
+<span class="fc" id="L37">        return stream.skip(safeOffset).limit(safeLimit)</span>
+<span class="fc" id="L38">                .map(this::mapToDTO)</span>
+<span class="fc" id="L39">                .collect(Collectors.toList());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public GenreResponseDTO getGenreById(Long id) {
+<span class="fc" id="L44">        Genre genre = genreRepository.findById(id)</span>
+<span class="fc" id="L45">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Genre not found&quot;));</span>
+
+<span class="fc" id="L47">        return mapToDTO(genre);</span>
+    }
+
+    @Transactional
+    public GenreResponseDTO createGenre(GenreRequestDTO request) {
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (genreRepository.existsByName(request.getName())) {</span>
+<span class="fc" id="L53">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Genre already exists&quot;);</span>
+        }
+
+<span class="fc" id="L56">        Genre genre = new Genre();</span>
+<span class="fc" id="L57">        genre.setName(request.getName());</span>
+
+<span class="fc" id="L59">        Genre savedGenre = genreRepository.save(genre);</span>
+
+<span class="fc" id="L61">        return mapToDTO(&quot;Genre created&quot;, savedGenre);</span>
+    }
+
+    @Transactional
+    public GenreResponseDTO updateGenre(Long id, GenreRequestDTO request) {
+<span class="fc" id="L66">        Genre genre = genreRepository.findById(id)</span>
+<span class="pc" id="L67">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Genre not found&quot;));</span>
+
+<span class="pc bpc" id="L69" title="2 of 4 branches missed.">        if (request.getName() != null &amp;&amp; !request.getName().isBlank()) {</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">            if (genreRepository.existsByName(request.getName()) &amp;&amp;</span>
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">                    !genre.getName().equalsIgnoreCase(request.getName())) {</span>
+<span class="fc" id="L72">                throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Genre name already exists&quot;);</span>
+            }
+
+<span class="fc" id="L75">            genre.setName(request.getName());</span>
+        }
+
+<span class="fc" id="L78">        Genre updatedGenre = genreRepository.save(genre);</span>
+
+<span class="fc" id="L80">        return mapToDTO(&quot;Genre updated&quot;, updatedGenre);</span>
+    }
+
+    @Transactional
+    public void deleteGenre(@PathVariable Long id) {
+<span class="fc" id="L85">        Genre genre = genreRepository.findById(id)</span>
+<span class="fc" id="L86">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Music not found&quot;));</span>
+
+<span class="fc" id="L88">        genreRepository.delete(genre);</span>
+<span class="fc" id="L89">    }</span>
+
+    private GenreResponseDTO mapToDTO(Genre genre) {
+<span class="fc" id="L92">        return new GenreResponseDTO(genre.getId(), genre.getName());</span>
+    }
+
+    private GenreResponseDTO mapToDTO(String message, Genre genre) {
+<span class="fc" id="L96">        return new GenreResponseDTO(message, genre.getId(), genre.getName());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

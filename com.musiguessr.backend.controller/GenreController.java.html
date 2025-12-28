@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenreController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.controller</a> &gt; <span class="el_source">GenreController.java</span></div><h1>GenreController.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.controller;
+
+import com.musiguessr.backend.dto.genre.GenreRequestDTO;
+import com.musiguessr.backend.dto.genre.GenreResponseDTO;
+import com.musiguessr.backend.service.GenreService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/genres&quot;)
+@RequiredArgsConstructor
+public class GenreController {
+
+    private final GenreService genreService;
+
+    @GetMapping
+    public ResponseEntity&lt;List&lt;GenreResponseDTO&gt;&gt; getGenres(
+            @RequestParam(value = &quot;name&quot;, required = false) String name,
+            @RequestParam(value = &quot;limit&quot;, required = false) Integer limit,
+            @RequestParam(value = &quot;offset&quot;, required = false) Integer offset) {
+<span class="fc" id="L27">        return ResponseEntity.ok(genreService.getGenres(name, limit, offset));</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;GenreResponseDTO&gt; getGenreById(@PathVariable Long id) {
+<span class="fc" id="L32">        return ResponseEntity.ok(genreService.getGenreById(id));</span>
+    }
+
+    @PostMapping
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;GenreResponseDTO&gt; createGenre(@Valid @RequestBody GenreRequestDTO request) {
+<span class="fc" id="L38">        return ResponseEntity.status(HttpStatus.CREATED).body(genreService.createGenre(request));</span>
+    }
+
+    @PatchMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;GenreResponseDTO&gt; updateGenre(@PathVariable Long id,
+                                                        @Valid @RequestBody GenreRequestDTO request) {
+<span class="fc" id="L45">        return ResponseEntity.ok(genreService.updateGenre(id, request));</span>
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;Void&gt; deleteGenre(@PathVariable Long id) {
+<span class="fc" id="L51">        genreService.deleteGenre(id);</span>
+<span class="fc" id="L52">        return ResponseEntity.noContent().build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

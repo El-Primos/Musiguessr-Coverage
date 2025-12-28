@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>S3Service.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.service</a> &gt; <span class="el_source">S3Service.java</span></div><h1>S3Service.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.service;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+
+import java.time.Duration;
+
+@Service
+@RequiredArgsConstructor
+public class S3Service {
+
+    private final S3Presigner s3Presigner;
+    private final S3Client s3Client;
+
+    @Value(&quot;${aws.s3.bucket}&quot;)
+    private String bucketName;
+
+    @Value(&quot;${aws.region}&quot;)
+    private String region;
+
+    public String createPresignedUploadUrl(String key, String contentType) {
+<span class="fc" id="L31">        PutObjectRequest objectRequest = PutObjectRequest.builder()</span>
+<span class="fc" id="L32">                .bucket(bucketName)</span>
+<span class="fc" id="L33">                .key(key)</span>
+<span class="fc" id="L34">                .contentType(contentType)</span>
+<span class="fc" id="L35">                .build();</span>
+
+<span class="fc" id="L37">        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()</span>
+<span class="fc" id="L38">                .signatureDuration(Duration.ofMinutes(10))</span>
+<span class="fc" id="L39">                .putObjectRequest(objectRequest)</span>
+<span class="fc" id="L40">                .build();</span>
+
+<span class="fc" id="L42">        PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);</span>
+
+<span class="fc" id="L44">        return presignedRequest.url().toString();</span>
+    }
+
+    public void deleteFile(String key) {
+<span class="fc" id="L48">        DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()</span>
+<span class="fc" id="L49">                .bucket(bucketName)</span>
+<span class="fc" id="L50">                .key(key)</span>
+<span class="fc" id="L51">                .build();</span>
+
+<span class="fc" id="L53">        s3Client.deleteObject(deleteObjectRequest);</span>
+<span class="fc" id="L54">    }</span>
+
+    public boolean doesFileExist(String key) {
+        try {
+<span class="fc" id="L58">            HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()</span>
+<span class="fc" id="L59">                    .bucket(bucketName)</span>
+<span class="fc" id="L60">                    .key(key)</span>
+<span class="fc" id="L61">                    .build();</span>
+
+<span class="fc" id="L63">            s3Client.headObject(headObjectRequest);</span>
+<span class="fc" id="L64">            return true;</span>
+<span class="fc" id="L65">        } catch (NoSuchKeyException e) {</span>
+<span class="fc" id="L66">            return false;</span>
+        }
+    }
+
+    public String getUrl(String key) {
+<span class="fc" id="L71">        return String.format(&quot;https://%s.s3.%s.amazonaws.com/%s&quot;, bucketName, region, key);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

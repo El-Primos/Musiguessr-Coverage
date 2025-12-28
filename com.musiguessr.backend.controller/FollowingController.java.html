@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FollowingController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.controller</a> &gt; <span class="el_source">FollowingController.java</span></div><h1>FollowingController.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.controller;
+
+import com.musiguessr.backend.dto.following.FollowFriendDTO;
+import com.musiguessr.backend.dto.following.FollowRequestDTO;
+import com.musiguessr.backend.service.FollowingService;
+import com.musiguessr.backend.util.AuthUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/followings&quot;)
+@RequiredArgsConstructor
+public class FollowingController {
+
+    private final FollowingService followingService;
+    private final AuthUtil authUtil;
+
+    @PostMapping(&quot;/request&quot;)
+    public ResponseEntity&lt;String&gt; sendFollowRequest(@RequestParam Long targetUserId) {
+<span class="fc" id="L24">        Long userId = authUtil.getCurrentUserId();</span>
+<span class="fc" id="L25">        followingService.sendFollowRequest(userId, targetUserId);</span>
+<span class="fc" id="L26">        return ResponseEntity.status(HttpStatus.CREATED).body(&quot;Follow request sent&quot;);</span>
+    }
+
+    @PostMapping(&quot;/inbox/seen&quot;)
+    public ResponseEntity&lt;String&gt; markInboxSeen() {
+<span class="fc" id="L31">        Long userId = authUtil.getCurrentUserId();</span>
+<span class="fc" id="L32">        followingService.markInboxSeen(userId);</span>
+<span class="fc" id="L33">        return ResponseEntity.ok(&quot;Inbox marked as seen&quot;);</span>
+    }
+
+    @PostMapping(&quot;/accept&quot;)
+    public ResponseEntity&lt;String&gt; acceptFollowRequest(@RequestParam Long requesterId) {
+<span class="fc" id="L38">        Long userId = authUtil.getCurrentUserId();</span>
+<span class="fc" id="L39">        followingService.acceptRequest(userId, requesterId);</span>
+<span class="fc" id="L40">        return ResponseEntity.ok(&quot;Request accepted&quot;);</span>
+    }
+
+    @DeleteMapping(&quot;/discard&quot;)
+    public ResponseEntity&lt;String&gt; discardFollowRequest(@RequestParam Long requesterId) {
+<span class="fc" id="L45">        Long userId = authUtil.getCurrentUserId();</span>
+<span class="fc" id="L46">        followingService.discardRequest(userId, requesterId);</span>
+<span class="fc" id="L47">        return ResponseEntity.ok(&quot;Request discarded&quot;);</span>
+    }
+
+    @GetMapping(&quot;/incoming&quot;)
+    public ResponseEntity&lt;List&lt;FollowRequestDTO&gt;&gt; incomingRequests() {
+<span class="fc" id="L52">        Long userId = authUtil.getCurrentUserId();</span>
+<span class="fc" id="L53">        return ResponseEntity.ok(followingService.listIncomingRequests(userId));</span>
+    }
+
+    @GetMapping(&quot;/friends&quot;)
+    public ResponseEntity&lt;List&lt;FollowFriendDTO&gt;&gt; acceptedFollowing() {
+<span class="fc" id="L58">        Long userId = authUtil.getCurrentUserId();</span>
+<span class="fc" id="L59">        return ResponseEntity.ok(followingService.listAcceptedFollowing(userId));</span>
+    }
+
+    @DeleteMapping(&quot;/unfriend&quot;)
+    public ResponseEntity&lt;String&gt; unfriend(@RequestParam Long friendId) {
+<span class="fc" id="L64">        Long userId = authUtil.getCurrentUserId();</span>
+<span class="fc" id="L65">        followingService.unfriend(userId, friendId);</span>
+<span class="fc" id="L66">        return ResponseEntity.ok(&quot;Friendship removed&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

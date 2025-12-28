@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.service</a> &gt; <span class="el_source">UserService.java</span></div><h1>UserService.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.service;
+
+import com.musiguessr.backend.dto.UserResponseDTO;
+import com.musiguessr.backend.dto.MeProfileDTO;
+import com.musiguessr.backend.dto.GameHistoryDTO;
+import com.musiguessr.backend.dto.TournamentHistoryDTO;
+import com.musiguessr.backend.dto.user.ProfilePicturePresignResponseDTO;
+import com.musiguessr.backend.dto.user.UserUpdateRequestDTO;
+import com.musiguessr.backend.model.User;
+import com.musiguessr.backend.model.UserRole;
+import com.musiguessr.backend.repository.UserRepository;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+<span class="fc" id="L29">    private static final Map&lt;String, String&gt; VALID_IMAGE_FORMATS = Map.of(</span>
+            &quot;jpg&quot;, &quot;image/jpeg&quot;,
+            &quot;jpeg&quot;, &quot;image/jpeg&quot;,
+            &quot;png&quot;, &quot;image/png&quot;,
+            &quot;gif&quot;, &quot;image/gif&quot;,
+            &quot;webp&quot;, &quot;image/webp&quot;
+    );
+
+    @Getter
+    private final UserRepository userRepository;
+    private final S3Service s3Service;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional(readOnly = true)
+    public UserResponseDTO getUser(Long id) {
+<span class="fc" id="L44">        User user = userRepository.findById(id)</span>
+<span class="fc" id="L45">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;User not found&quot;));</span>
+<span class="fc" id="L46">        return toDto(user);</span>
+    }
+
+    @Transactional
+    public UserResponseDTO updateUser(Long userId, UserUpdateRequestDTO dto) {
+<span class="fc" id="L51">        User user = userRepository.findById(userId)</span>
+<span class="pc" id="L52">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;User not found&quot;));</span>
+
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">        if (dto.getName() != null) {</span>
+<span class="fc" id="L55">            user.setName(dto.getName());</span>
+        }
+
+<span class="fc" id="L58">        User savedUser = userRepository.save(user);</span>
+<span class="fc" id="L59">        return toDto(savedUser);</span>
+    }
+
+    @Transactional
+    public UserResponseDTO updateUserRole(Long userId, UserRole role) {
+<span class="nc" id="L64">        User user = userRepository.findById(userId)</span>
+<span class="nc" id="L65">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;User not found&quot;));</span>
+
+<span class="nc" id="L67">        user.setRole(role);</span>
+<span class="nc" id="L68">        User savedUser = userRepository.save(user);</span>
+<span class="nc" id="L69">        return toDto(savedUser);</span>
+    }
+
+    @Transactional
+    public void updatePassword(Long userId, String currentPassword, String newPassword) {
+<span class="fc" id="L74">        User user = userRepository.findById(userId)</span>
+<span class="pc" id="L75">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;User not found&quot;));</span>
+
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {</span>
+<span class="fc" id="L78">            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, &quot;Current password is incorrect&quot;);</span>
+        }
+
+<span class="fc" id="L81">        user.setPassword(passwordEncoder.encode(newPassword));</span>
+<span class="fc" id="L82">        userRepository.save(user);</span>
+<span class="fc" id="L83">    }</span>
+
+    public ProfilePicturePresignResponseDTO presignProfilePicture(Long userId, String fileName, String contentType) {
+<span class="fc" id="L86">        String extension = StringUtils.getFilenameExtension(fileName);</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if (extension == null) {</span>
+<span class="nc" id="L88">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;File must have an extension&quot;);</span>
+        }
+
+<span class="fc" id="L91">        String normalizedExt = extension.toLowerCase();</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (!VALID_IMAGE_FORMATS.containsKey(normalizedExt)) {</span>
+<span class="fc" id="L93">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Extension '.&quot; + normalizedExt + &quot;' is not supported. Use jpg, png, gif, or webp&quot;);</span>
+        }
+
+<span class="fc" id="L96">        String expectedType = VALID_IMAGE_FORMATS.get(normalizedExt);</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">        if (!expectedType.equals(contentType)) {</span>
+<span class="fc" id="L98">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, String.format(</span>
+                    &quot;Expected '%s' for .%s extension, but got '%s'&quot;,
+                    expectedType, normalizedExt, contentType
+            ));
+        }
+
+<span class="fc" id="L104">        String uniqueKey = &quot;profile-pictures/&quot; + userId + &quot;/&quot; + UUID.randomUUID() + &quot;.&quot; + normalizedExt;</span>
+<span class="fc" id="L105">        String uploadUrl = s3Service.createPresignedUploadUrl(uniqueKey, contentType);</span>
+
+<span class="fc" id="L107">        return new ProfilePicturePresignResponseDTO(&quot;Presign upload url created&quot;, uniqueKey, uploadUrl);</span>
+    }
+
+    @Transactional
+    public UserResponseDTO confirmProfilePicture(Long userId, String key) {
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        if (!s3Service.doesFileExist(key)) {</span>
+<span class="fc" id="L113">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;File not found in S3&quot;);</span>
+        }
+
+<span class="fc" id="L116">        User user = userRepository.findById(userId)</span>
+<span class="pc" id="L117">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;User not found&quot;));</span>
+
+        // Delete old profile picture if exists
+<span class="pc bpc" id="L120" title="2 of 4 branches missed.">        if (user.getProfilePictureUrl() != null &amp;&amp; user.getProfilePictureUrl().contains(&quot;profile-pictures/&quot;)) {</span>
+<span class="fc" id="L121">            String oldKey = user.getProfilePictureUrl().substring(user.getProfilePictureUrl().indexOf(&quot;profile-pictures/&quot;));</span>
+<span class="fc" id="L122">            s3Service.deleteFile(oldKey);</span>
+        }
+
+<span class="fc" id="L125">        String url = s3Service.getUrl(key);</span>
+<span class="fc" id="L126">        user.setProfilePictureUrl(url);</span>
+<span class="fc" id="L127">        User savedUser = userRepository.save(user);</span>
+
+<span class="fc" id="L129">        return toDto(savedUser);</span>
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        if (!userRepository.existsById(id)) {</span>
+<span class="nc" id="L135">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;User not found&quot;);</span>
+        }
+<span class="nc" id="L137">        userRepository.deleteById(id);</span>
+<span class="nc" id="L138">    }</span>
+
+    @Transactional(readOnly = true)
+    public List&lt;UserResponseDTO&gt; listUsers() {
+<span class="nc" id="L142">        return userRepository.findAll().stream()</span>
+<span class="nc" id="L143">                .map(this::toDto)</span>
+<span class="nc" id="L144">                .toList();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public MeProfileDTO getProfile(Long userId) {
+<span class="nc" id="L149">        UserRepository.ProfileProjection projection = userRepository.findProfileByUserId(userId)</span>
+<span class="nc" id="L150">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;User not found&quot;));</span>
+
+<span class="nc" id="L152">        return new MeProfileDTO(</span>
+<span class="nc" id="L153">                projection.getId(),</span>
+<span class="nc" id="L154">                projection.getName(),</span>
+<span class="nc" id="L155">                projection.getUsername(),</span>
+<span class="nc" id="L156">                projection.getEmail(),</span>
+<span class="nc" id="L157">                projection.getTotalScore(),</span>
+<span class="nc" id="L158">                projection.getGamesPlayed(),</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">                projection.getLastPlayedAt() != null</span>
+<span class="nc" id="L160">                        ? projection.getLastPlayedAt().atOffset(java.time.ZoneOffset.UTC)</span>
+<span class="nc" id="L161">                        : null,</span>
+<span class="nc" id="L162">                projection.getTournamentsAttended(),</span>
+<span class="nc" id="L163">                projection.getProfilePictureUrl()</span>
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;GameHistoryDTO&gt; getGameHistory(Long userId) {
+<span class="nc" id="L169">        return userRepository.findGameHistoryByUserId(userId).stream()</span>
+<span class="nc" id="L170">                .map(p -&gt; new GameHistoryDTO(</span>
+<span class="nc" id="L171">                        p.getGameHistoryId(),</span>
+<span class="nc" id="L172">                        p.getPlaylistId(),</span>
+<span class="nc" id="L173">                        p.getTotalScore(),</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">                        p.getPlayedAt() != null</span>
+<span class="nc" id="L175">                                ? p.getPlayedAt().atOffset(java.time.ZoneOffset.UTC)</span>
+<span class="nc" id="L176">                                : null))</span>
+<span class="nc" id="L177">                .toList();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;TournamentHistoryDTO&gt; getTournamentHistory(Long userId) {
+<span class="nc" id="L182">        return userRepository.findTournamentHistoryByUserId(userId).stream()</span>
+<span class="nc" id="L183">                .map(p -&gt; new TournamentHistoryDTO(</span>
+<span class="nc" id="L184">                        p.getTournamentId(),</span>
+<span class="nc" id="L185">                        p.getUserScore(),</span>
+<span class="nc" id="L186">                        p.getStatus(),</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">                        p.getStartsAt() != null</span>
+<span class="nc" id="L188">                                ? p.getStartsAt().atOffset(java.time.ZoneOffset.UTC)</span>
+<span class="nc" id="L189">                                : null,</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">                        p.getEndsAt() != null</span>
+<span class="nc" id="L191">                                ? p.getEndsAt().atOffset(java.time.ZoneOffset.UTC)</span>
+<span class="nc" id="L192">                                : null))</span>
+<span class="nc" id="L193">                .toList();</span>
+    }
+
+    private UserResponseDTO toDto(User user) {
+<span class="fc" id="L197">        return new UserResponseDTO(</span>
+<span class="fc" id="L198">                user.getId(),</span>
+<span class="fc" id="L199">                user.getName(),</span>
+<span class="fc" id="L200">                user.getUsername(),</span>
+<span class="fc" id="L201">                user.getEmail(),</span>
+<span class="fc" id="L202">                user.getScore(),</span>
+<span class="fc" id="L203">                user.getRole().name(),</span>
+<span class="fc" id="L204">                user.getProfilePictureUrl()</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

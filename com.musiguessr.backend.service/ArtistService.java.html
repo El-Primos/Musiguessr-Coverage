@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArtistService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.service</a> &gt; <span class="el_source">ArtistService.java</span></div><h1>ArtistService.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.service;
+
+import com.musiguessr.backend.dto.artist.ArtistRequestDTO;
+import com.musiguessr.backend.dto.artist.ArtistResponseDTO;
+import com.musiguessr.backend.model.Artist;
+import com.musiguessr.backend.repository.ArtistRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+@Service
+@RequiredArgsConstructor
+public class ArtistService {
+
+    private final ArtistRepository artistRepository;
+
+    @Transactional(readOnly = true)
+    public List&lt;ArtistResponseDTO&gt; getArtists(String name, Integer limit, Integer offset) {
+<span class="fc" id="L25">        Stream&lt;Artist&gt; stream = artistRepository.findAll().stream();</span>
+
+<span class="pc bpc" id="L27" title="1 of 2 branches missed.">        if (name != null) {</span>
+<span class="fc" id="L28">            String needle = name.trim().toLowerCase();</span>
+<span class="pc bpc" id="L29" title="2 of 4 branches missed.">            stream = stream.filter(p -&gt; p.getName() != null &amp;&amp; p.getName().toLowerCase().contains(needle));</span>
+        }
+
+<span class="pc bpc" id="L32" title="2 of 4 branches missed.">        int safeOffset = (offset == null || offset &lt; 0) ? 0 : offset;</span>
+<span class="pc bpc" id="L33" title="2 of 4 branches missed.">        int safeLimit = (limit == null || limit &lt; 0) ? 50 : limit;</span>
+
+<span class="fc" id="L35">        return stream.skip(safeOffset).limit(safeLimit)</span>
+<span class="fc" id="L36">                .map(this::mapToDTO)</span>
+<span class="fc" id="L37">                .collect(Collectors.toList());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public ArtistResponseDTO getArtistById(Long id) {
+<span class="nc" id="L42">        Artist artist = artistRepository.findById(id)</span>
+<span class="nc" id="L43">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Artist not found&quot;));</span>
+
+<span class="nc" id="L45">        return mapToDTO(artist);</span>
+    }
+
+    @Transactional
+    public ArtistResponseDTO createArtist(ArtistRequestDTO request) {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (artistRepository.existsByName(request.getName())) {</span>
+<span class="fc" id="L51">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Artist already exists&quot;);</span>
+        }
+
+<span class="fc" id="L54">        Artist artist = new Artist();</span>
+<span class="fc" id="L55">        artist.setName(request.getName());</span>
+
+<span class="fc" id="L57">        Artist savedArtist = artistRepository.save(artist);</span>
+
+<span class="fc" id="L59">        return mapToDTO(&quot;Artist created&quot;, savedArtist);</span>
+    }
+
+    @Transactional
+    public ArtistResponseDTO updateArtist(Long id, ArtistRequestDTO request) {
+<span class="fc" id="L64">        Artist artist = artistRepository.findById(id)</span>
+<span class="pc" id="L65">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Artist not found&quot;));</span>
+
+<span class="nc bnc" id="L67" title="All 4 branches missed.">        if (request.getName() != null &amp;&amp; !request.getName().isBlank()) {</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            if (artistRepository.existsByName(request.getName()) &amp;&amp;</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">                    !artist.getName().equalsIgnoreCase(request.getName())) {</span>
+<span class="nc" id="L70">                throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Artist name already exists&quot;);</span>
+            }
+
+<span class="nc" id="L73">            artist.setName(request.getName());</span>
+        }
+
+<span class="nc" id="L76">        Artist updatedArtist = artistRepository.save(artist);</span>
+
+<span class="nc" id="L78">        return mapToDTO(&quot;Artist updated&quot;, updatedArtist);</span>
+    }
+
+    @Transactional
+    public void deleteArtist(Long id) {
+<span class="nc" id="L83">        Artist artist = artistRepository.findById(id)</span>
+<span class="nc" id="L84">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Music not found&quot;));</span>
+
+<span class="nc" id="L86">        artistRepository.delete(artist);</span>
+<span class="nc" id="L87">    }</span>
+
+    private ArtistResponseDTO mapToDTO(Artist artist) {
+<span class="fc" id="L90">        return new ArtistResponseDTO(artist.getId(), artist.getName());</span>
+    }
+
+    private ArtistResponseDTO mapToDTO(String message, Artist artist) {
+<span class="fc" id="L94">        return new ArtistResponseDTO(message, artist.getId(), artist.getName());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

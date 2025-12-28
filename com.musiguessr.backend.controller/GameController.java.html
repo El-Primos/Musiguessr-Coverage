@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GameController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.controller</a> &gt; <span class="el_source">GameController.java</span></div><h1>GameController.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.controller;
+
+import com.musiguessr.backend.dto.game.*;
+import com.musiguessr.backend.service.GameService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+public class GameController {
+
+    private final GameService gameService;
+
+    @PostMapping(&quot;/api/games&quot;)
+    public ResponseEntity&lt;GameResponseDTO&gt; createGame() {
+<span class="fc" id="L19">        return ResponseEntity.status(HttpStatus.CREATED).body(gameService.createGame());</span>
+    }
+
+    @PostMapping(&quot;/api/games/tournament&quot;)
+    public ResponseEntity&lt;GameResponseDTO&gt; createTournamentGame(
+            @RequestParam Long tournamentId
+    ) {
+<span class="fc" id="L26">        return ResponseEntity.status(HttpStatus.CREATED).body(gameService.createTournamentGame(tournamentId));</span>
+    }
+
+    @PostMapping(&quot;/api/games/{id}/start&quot;)
+    public ResponseEntity&lt;GameStartDTO&gt; startGame(@PathVariable Long id) {
+<span class="fc" id="L31">        return ResponseEntity.ok(gameService.startGame(id));</span>
+    }
+
+    @GetMapping(&quot;/api/games/{id}/skip&quot;)
+    public ResponseEntity&lt;GameRoundResultDTO&gt; skip(@PathVariable Long id) {
+<span class="fc" id="L36">        return ResponseEntity.ok(gameService.skip(id));</span>
+    }
+
+    @PostMapping(&quot;/api/games/{id}/guess&quot;)
+    public ResponseEntity&lt;GameRoundResultDTO&gt; guess(@PathVariable Long id,
+                                                    @Valid @RequestBody GameRoundGuessDTO request) {
+<span class="fc" id="L42">        return ResponseEntity.ok(gameService.guess(id, request));</span>
+    }
+
+    @PostMapping(&quot;/api/games/{id}/finish&quot;)
+    public ResponseEntity&lt;GameResultDTO&gt; finish(@PathVariable Long id) {
+<span class="fc" id="L47">        return ResponseEntity.ok(gameService.finish(id));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PostService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.service</a> &gt; <span class="el_source">PostService.java</span></div><h1>PostService.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.service;
+
+import com.musiguessr.backend.dto.post.PostShareRequestDTO;
+import com.musiguessr.backend.dto.post.PostShareResponseDTO;
+import com.musiguessr.backend.dto.post.RoundSummaryDTO;
+import com.musiguessr.backend.model.Game;
+import com.musiguessr.backend.model.GameHistory;
+import com.musiguessr.backend.model.GameRound;
+import com.musiguessr.backend.model.Post;
+import com.musiguessr.backend.repository.GameHistoryRepository;
+import com.musiguessr.backend.repository.GameRepository;
+import com.musiguessr.backend.repository.GameRoundRepository;
+import com.musiguessr.backend.repository.PostRepository;
+import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+@RequiredArgsConstructor
+public class PostService {
+
+    private final PostRepository postRepository;
+    private final GameHistoryRepository gameHistoryRepository;
+    private final GameRoundRepository gameRoundRepository;
+    private final GameRepository gameRepository;
+
+    @Transactional
+    public PostShareResponseDTO shareGameHistory(Long authUserId, PostShareRequestDTO request) {
+<span class="pc bpc" id="L36" title="2 of 4 branches missed.">        if (request == null || request.getGameHistoryId() == null) {</span>
+<span class="nc" id="L37">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;gameHistoryId is required&quot;);</span>
+        }
+
+<span class="fc" id="L40">        GameHistory history = gameHistoryRepository.findById(request.getGameHistoryId())</span>
+<span class="pc" id="L41">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Game history not found&quot;));</span>
+
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (!Objects.equals(history.getUserId(), authUserId)) {</span>
+<span class="fc" id="L44">            throw new ResponseStatusException(HttpStatus.FORBIDDEN, &quot;Cannot share another user's game history&quot;);</span>
+        }
+
+<span class="fc" id="L47">        Post post = new Post();</span>
+<span class="fc" id="L48">        post.setUserId(authUserId);</span>
+<span class="fc" id="L49">        post.setGameHistoryId(history.getId());</span>
+
+<span class="fc" id="L51">        Post saved = postRepository.save(post);</span>
+<span class="fc" id="L52">        return mapToResponse(saved, history);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public PostShareResponseDTO getPost(Long postId) {
+<span class="fc" id="L57">        Post post = postRepository.findById(postId)</span>
+<span class="pc" id="L58">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Post not found&quot;));</span>
+
+<span class="fc" id="L60">        GameHistory history = gameHistoryRepository.findById(post.getGameHistoryId())</span>
+<span class="pc" id="L61">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Game history not found&quot;));</span>
+
+<span class="fc" id="L63">        return mapToResponse(post, history);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;PostShareResponseDTO&gt; getUserPosts(Long userId) {
+<span class="fc" id="L68">        return postRepository.findByUserIdOrderByPostedAtDesc(userId).stream()</span>
+<span class="fc" id="L69">                .map(p -&gt; {</span>
+<span class="fc" id="L70">                    GameHistory history = gameHistoryRepository.findById(p.getGameHistoryId())</span>
+<span class="pc" id="L71">                            .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Game history not found&quot;));</span>
+<span class="fc" id="L72">                    return mapToResponse(p, history);</span>
+                })
+<span class="fc" id="L74">                .toList();</span>
+    }
+
+    @Transactional
+    public void deletePost(Long userId, Long postId) {
+<span class="fc" id="L79">        Post post = postRepository.findById(postId)</span>
+<span class="pc" id="L80">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Post not found&quot;));</span>
+
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        if (!Objects.equals(post.getUserId(), userId)) {</span>
+<span class="fc" id="L83">            throw new ResponseStatusException(HttpStatus.FORBIDDEN, &quot;Cannot delete others' posts&quot;);</span>
+        }
+
+<span class="fc" id="L86">        postRepository.delete(post);</span>
+<span class="fc" id="L87">    }</span>
+
+    // ------------- helpers -------------
+
+    private PostShareResponseDTO mapToResponse(Post post, GameHistory history) {
+<span class="fc" id="L92">        List&lt;GameRound&gt; rounds = gameRoundRepository.findByGameHistoryIdOrderByRoundAsc(history.getId());</span>
+
+<span class="fc" id="L94">        Map&lt;String, RoundSummaryDTO&gt; roundMap = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L95">        List&lt;Boolean&gt; predictions = new java.util.ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L97">        int index = 1;</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        for (GameRound round : rounds) {</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">            boolean correct = round.getGuessedSong() != null</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">                    &amp;&amp; round.getGuessedSong().equalsIgnoreCase(round.getSong());</span>
+<span class="fc" id="L101">            predictions.add(correct);</span>
+
+<span class="fc" id="L103">            roundMap.put(</span>
+                    &quot;song&quot; + index,
+                    new RoundSummaryDTO(
+                            correct,
+<span class="fc" id="L107">                            round.getSong(),</span>
+<span class="fc" id="L108">                            round.getGuessedSong(),</span>
+<span class="fc" id="L109">                            round.getGuessTime(),</span>
+<span class="fc" id="L110">                            round.getScoreEarned(),</span>
+<span class="fc" id="L111">                            round.getRound()</span>
+                    )
+            );
+<span class="fc" id="L114">            index++;</span>
+<span class="fc" id="L115">        }</span>
+
+<span class="fc" id="L117">        OffsetDateTime playedAt = resolvePlayedAt(history, post);</span>
+
+<span class="fc" id="L119">        return new PostShareResponseDTO(</span>
+<span class="fc" id="L120">                post.getId(),</span>
+<span class="fc" id="L121">                post.getUserId(),</span>
+<span class="fc" id="L122">                history.getId(),</span>
+<span class="fc" id="L123">                history.getScore(),</span>
+                playedAt,
+                predictions,
+                roundMap
+        );
+    }
+
+    private OffsetDateTime resolvePlayedAt(GameHistory history, Post post) {
+<span class="fc" id="L131">        Game game = history.getGame();</span>
+<span class="pc bpc" id="L132" title="1 of 4 branches missed.">        if (game == null &amp;&amp; history.getGameId() != null) {</span>
+<span class="nc" id="L133">            game = gameRepository.findById(history.getGameId()).orElse(null);</span>
+        }
+<span class="pc bpc" id="L135" title="1 of 4 branches missed.">        if (game != null &amp;&amp; game.getCreatedAt() != null) {</span>
+<span class="fc" id="L136">            return game.getCreatedAt();</span>
+        }
+<span class="fc" id="L138">        return post.getPostedAt();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

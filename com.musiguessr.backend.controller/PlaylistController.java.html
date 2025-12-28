@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlaylistController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.controller</a> &gt; <span class="el_source">PlaylistController.java</span></div><h1>PlaylistController.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.controller;
+
+import com.musiguessr.backend.dto.music.MusicResponseDTO;
+import com.musiguessr.backend.dto.playlist.*;
+import com.musiguessr.backend.service.PlaylistService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/playlists&quot;)
+@RequiredArgsConstructor
+public class PlaylistController {
+
+    private final PlaylistService playlistService;
+
+    @GetMapping
+    public ResponseEntity&lt;List&lt;PlaylistResponseDTO&gt;&gt; getPlaylists(
+            @RequestParam(required = false) Long ownerId,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Integer offset
+    ) {
+<span class="fc" id="L29">        return ResponseEntity.ok(playlistService.getPlaylists(ownerId, name, limit, offset));</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;PlaylistResponseDTO&gt; getPlaylistById(@PathVariable Long id) {
+<span class="nc" id="L34">        return ResponseEntity.ok(playlistService.getPlaylistById(id));</span>
+    }
+
+    @PostMapping
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;PlaylistResponseDTO&gt; createPlaylist(@Valid @RequestBody PlaylistRequestDTO request) {
+<span class="fc" id="L40">        return ResponseEntity.status(HttpStatus.CREATED).body(playlistService.createPlaylist(request));</span>
+    }
+
+    @PostMapping(&quot;/random&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;PlaylistResponseDTO&gt; createRandomPlaylist(@Valid @RequestBody PlaylistRandomRequestDTO request) {
+<span class="fc" id="L46">        return ResponseEntity.status(HttpStatus.CREATED).body(playlistService.createRandomPlaylist(request));</span>
+    }
+
+    @PatchMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;PlaylistResponseDTO&gt; updatePlaylist(@PathVariable Long id,
+                                                              @RequestBody PlaylistUpdateRequestDTO request) {
+<span class="nc" id="L53">        return ResponseEntity.ok(playlistService.updatePlaylist(id, request));</span>
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;Void&gt; deletePlaylist(@PathVariable Long id) {
+<span class="fc" id="L59">        playlistService.deletePlaylist(id);</span>
+<span class="fc" id="L60">        return ResponseEntity.noContent().build();</span>
+    }
+
+    @GetMapping(&quot;/{id}/songs&quot;)
+    public ResponseEntity&lt;List&lt;MusicResponseDTO&gt;&gt; getPlaylistSongs(@PathVariable Long id) {
+<span class="nc" id="L65">        return ResponseEntity.ok(playlistService.getPlaylistSongs(id));</span>
+    }
+
+    @PostMapping(&quot;/{id}/songs&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;Void&gt; addSongToPlaylist(@PathVariable Long id,
+                                                  @Valid @RequestBody PlaylistItemRequestDTO request) {
+<span class="fc" id="L72">        playlistService.addSongToPlaylist(id, request);</span>
+<span class="fc" id="L73">        return ResponseEntity.status(HttpStatus.CREATED).build();</span>
+    }
+
+    @PostMapping(&quot;/{id}/songs/batch&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;Void&gt; addSongsToPlaylist(@PathVariable Long id,
+                                                   @RequestBody @Valid PlaylistBatchItemRequestDTO request) {
+<span class="nc" id="L80">        playlistService.addSongsToPlaylist(id, request);</span>
+<span class="nc" id="L81">        return ResponseEntity.status(HttpStatus.CREATED).build();</span>
+    }
+
+    @DeleteMapping(&quot;/{id}/songs/{songId}&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;Void&gt; removeSongFromPlaylist(@PathVariable Long id, @PathVariable Long songId) {
+<span class="nc" id="L87">        playlistService.removeSongFromPlaylist(id, songId);</span>
+<span class="nc" id="L88">        return ResponseEntity.noContent().build();</span>
+    }
+
+    @PostMapping(&quot;/{id}/reorder&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;Void&gt; reorder(@PathVariable Long id,
+                                        @Valid @RequestBody PlaylistBatchItemRequestDTO request) {
+<span class="fc" id="L95">        playlistService.reorder(id, request);</span>
+<span class="fc" id="L96">        return ResponseEntity.ok().build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

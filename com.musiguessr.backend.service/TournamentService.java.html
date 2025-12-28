@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TournamentService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.service</a> &gt; <span class="el_source">TournamentService.java</span></div><h1>TournamentService.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.service;
+
+import com.musiguessr.backend.dto.tournament.*;
+import com.musiguessr.backend.model.*;
+import com.musiguessr.backend.repository.*;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+@RequiredArgsConstructor
+public class TournamentService {
+
+    private final TournamentRepository tournamentRepository;
+    private final TournamentParticipantRepository participantRepository;
+    private final PlaylistRepository playlistRepository;
+    private final UserRepository userRepository;
+
+    @Transactional
+    public TournamentResponseDTO createTournament(Long creatorId, TournamentCreateRequestDTO request) {
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">        if (request == null) {</span>
+<span class="nc" id="L30">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Request body is required&quot;);</span>
+        }
+<span class="pc bpc" id="L32" title="2 of 4 branches missed.">        if (request.getName() == null || request.getName().isBlank()) {</span>
+<span class="nc" id="L33">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;name is required&quot;);</span>
+        }
+<span class="pc bpc" id="L35" title="1 of 2 branches missed.">        if (request.getPlaylistId() == null) {</span>
+<span class="nc" id="L36">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;playlistId is required&quot;);</span>
+        }
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">        if (!playlistRepository.existsById(request.getPlaylistId())) {</span>
+<span class="nc" id="L39">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Playlist not found&quot;);</span>
+        }
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">        if (!userRepository.existsById(creatorId)) {</span>
+<span class="nc" id="L42">            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, &quot;User not found&quot;);</span>
+        }
+
+        // Validate dates
+<span class="pc bpc" id="L46" title="1 of 4 branches missed.">        if (request.getStartDate() != null &amp;&amp; request.getEndDate() != null) {</span>
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">            if (request.getStartDate().isAfter(request.getEndDate())) {</span>
+<span class="fc" id="L48">                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;startDate must be before endDate&quot;);</span>
+            }
+        }
+
+<span class="fc" id="L52">        Tournament tournament = new Tournament();</span>
+<span class="fc" id="L53">        tournament.setOwnerId(creatorId);</span>
+<span class="fc" id="L54">        tournament.setPlaylistId(request.getPlaylistId());</span>
+<span class="fc" id="L55">        tournament.setName(request.getName());</span>
+<span class="fc" id="L56">        tournament.setDescription(request.getDescription());</span>
+<span class="fc" id="L57">        tournament.setState(TournamentState.UPCOMING);</span>
+<span class="fc" id="L58">        tournament.setStartDate(request.getStartDate());</span>
+<span class="fc" id="L59">        tournament.setEndDate(request.getEndDate());</span>
+<span class="fc" id="L60">        tournament.setCreatedAt(OffsetDateTime.now());</span>
+
+<span class="fc" id="L62">        Tournament saved = tournamentRepository.save(tournament);</span>
+<span class="fc" id="L63">        return mapToResponseDTO(saved);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public TournamentResponseDTO getTournament(Long id) {
+<span class="nc" id="L68">        Tournament tournament = tournamentRepository.findById(id)</span>
+<span class="nc" id="L69">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;));</span>
+<span class="nc" id="L70">        return mapToResponseDTO(tournament);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public Page&lt;TournamentResponseDTO&gt; getTournaments(TournamentState status, Pageable pageable) {
+        Page&lt;Tournament&gt; tournaments;
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        if (status != null) {</span>
+<span class="nc" id="L77">            tournaments = tournamentRepository.findByState(status, pageable);</span>
+        } else {
+<span class="fc" id="L79">            tournaments = tournamentRepository.findAll(pageable);</span>
+        }
+<span class="fc" id="L81">        return tournaments.map(this::mapToResponseDTO);</span>
+    }
+
+    @Transactional
+    public TournamentResponseDTO updateTournament(Long id, Long requesterId, TournamentUpdateRequestDTO request) {
+<span class="fc" id="L86">        Tournament tournament = tournamentRepository.findById(id)</span>
+<span class="pc" id="L87">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;));</span>
+
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if (!tournament.getOwnerId().equals(requesterId)) {</span>
+<span class="fc" id="L90">            throw new ResponseStatusException(HttpStatus.FORBIDDEN, &quot;You are not the owner of this tournament&quot;);</span>
+        }
+
+<span class="fc" id="L93">        OffsetDateTime currentStart = tournament.getStartDate();</span>
+<span class="fc" id="L94">        OffsetDateTime currentEnd = tournament.getEndDate();</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        OffsetDateTime updatedStart = request.getStartDate() != null ? request.getStartDate() : currentStart;</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        OffsetDateTime updatedEnd = request.getEndDate() != null ? request.getEndDate() : currentEnd;</span>
+
+<span class="pc bpc" id="L98" title="5 of 6 branches missed.">        if (updatedStart != null &amp;&amp; updatedEnd != null &amp;&amp; updatedStart.isAfter(updatedEnd)) {</span>
+<span class="nc" id="L99">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;startDate must be before endDate&quot;);</span>
+        }
+
+<span class="pc bpc" id="L102" title="2 of 4 branches missed.">        if (request.getName() != null &amp;&amp; !request.getName().isBlank()) {</span>
+<span class="fc" id="L103">            tournament.setName(request.getName());</span>
+        }
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        if (request.getDescription() != null) {</span>
+<span class="nc" id="L106">            tournament.setDescription(request.getDescription());</span>
+        }
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        if (request.getStartDate() != null) {</span>
+<span class="nc" id="L109">            tournament.setStartDate(request.getStartDate());</span>
+        }
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        if (request.getEndDate() != null) {</span>
+<span class="nc" id="L112">            tournament.setEndDate(request.getEndDate());</span>
+        }
+
+<span class="fc" id="L115">        Tournament saved = tournamentRepository.save(tournament);</span>
+<span class="fc" id="L116">        return mapToResponseDTO(saved);</span>
+    }
+
+    @Transactional
+    public TournamentResponseDTO updateTournamentState(Long id, Long requesterId, TournamentState newState) {
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (newState == null) {</span>
+<span class="nc" id="L122">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;state is required&quot;);</span>
+        }
+
+<span class="nc" id="L125">        Tournament tournament = tournamentRepository.findById(id)</span>
+<span class="nc" id="L126">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;));</span>
+
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (!tournament.getOwnerId().equals(requesterId)) {</span>
+<span class="nc" id="L129">            throw new ResponseStatusException(HttpStatus.FORBIDDEN, &quot;You are not the owner of this tournament&quot;);</span>
+        }
+
+<span class="nc" id="L132">        tournament.setState(newState);</span>
+<span class="nc" id="L133">        Tournament saved = tournamentRepository.save(tournament);</span>
+<span class="nc" id="L134">        return mapToResponseDTO(saved);</span>
+    }
+
+    @Transactional
+    public TournamentResponseDTO joinTournament(Long userId, Long tournamentId) {
+<span class="fc" id="L139">        Tournament tournament = tournamentRepository.findById(tournamentId)</span>
+<span class="pc" id="L140">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;));</span>
+
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if (!userRepository.existsById(userId)) {</span>
+<span class="nc" id="L143">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;User not found&quot;);</span>
+        }
+
+<span class="pc bpc" id="L146" title="1 of 4 branches missed.">        if (tournament.getState() != TournamentState.UPCOMING &amp;&amp; tournament.getState() != TournamentState.ACTIVE) {</span>
+<span class="fc" id="L147">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Cannot join a finished tournament&quot;);</span>
+        }
+
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">        if (participantRepository.existsByIdTournamentIdAndIdUserId(tournamentId, userId)) {</span>
+<span class="nc" id="L151">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;User already joined this tournament&quot;);</span>
+        }
+
+<span class="fc" id="L154">        TournamentParticipant participant = new TournamentParticipant();</span>
+<span class="fc" id="L155">        participant.setId(new TournamentParticipantId(tournamentId, userId));</span>
+<span class="fc" id="L156">        participant.setTournament(tournament);</span>
+<span class="fc" id="L157">        participant.setUser(userRepository.getReferenceById(userId));</span>
+<span class="fc" id="L158">        participant.setUserScore(0);</span>
+
+<span class="fc" id="L160">        participantRepository.save(participant);</span>
+
+<span class="fc" id="L162">        return mapToResponseDTO(tournament);</span>
+    }
+
+    @Transactional
+    public TournamentResponseDTO leaveTournament(Long userId, Long tournamentId) {
+<span class="fc" id="L167">        Tournament tournament = tournamentRepository.findById(tournamentId)</span>
+<span class="pc" id="L168">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;));</span>
+
+<span class="fc" id="L170">        TournamentParticipantId id = new TournamentParticipantId(tournamentId, userId);</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">        if (!participantRepository.existsById(id)) {</span>
+<span class="nc" id="L172">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;User is not a participant of this tournament&quot;);</span>
+        }
+
+<span class="fc" id="L175">        participantRepository.deleteById(id);</span>
+<span class="fc" id="L176">        return mapToResponseDTO(tournament);</span>
+    }
+
+    @Transactional
+    public TournamentResponseDTO startTournament(Long tournamentId) {
+<span class="nc" id="L181">        Tournament tournament = tournamentRepository.findById(tournamentId)</span>
+<span class="nc" id="L182">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;));</span>
+
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        if (tournament.getState() != TournamentState.UPCOMING) {</span>
+<span class="nc" id="L185">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Tournament is not in UPCOMING status&quot;);</span>
+        }
+
+<span class="nc" id="L188">        tournament.setState(TournamentState.ACTIVE);</span>
+<span class="nc" id="L189">        tournament.setStartDate(OffsetDateTime.now());</span>
+
+<span class="nc" id="L191">        Tournament saved = tournamentRepository.save(tournament);</span>
+<span class="nc" id="L192">        return mapToResponseDTO(saved);</span>
+    }
+
+    @Transactional
+    public TournamentResponseDTO endTournament(Long tournamentId) {
+<span class="nc" id="L197">        Tournament tournament = tournamentRepository.findById(tournamentId)</span>
+<span class="nc" id="L198">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;));</span>
+
+<span class="nc bnc" id="L200" title="All 2 branches missed.">        if (tournament.getState() != TournamentState.ACTIVE) {</span>
+<span class="nc" id="L201">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Tournament is not in ACTIVE status&quot;);</span>
+        }
+
+<span class="nc" id="L204">        tournament.setState(TournamentState.FINISHED);</span>
+<span class="nc" id="L205">        tournament.setEndDate(OffsetDateTime.now());</span>
+
+<span class="nc" id="L207">        Tournament saved = tournamentRepository.save(tournament);</span>
+<span class="nc" id="L208">        return mapToResponseDTO(saved);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;TournamentParticipantDTO&gt; getParticipants(Long tournamentId) {
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        if (!tournamentRepository.existsById(tournamentId)) {</span>
+<span class="nc" id="L214">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;);</span>
+        }
+
+<span class="nc" id="L217">        return participantRepository.findByIdTournamentIdOrderByUserScoreDesc(tournamentId).stream()</span>
+<span class="nc" id="L218">                .map(this::mapToParticipantDTO)</span>
+<span class="nc" id="L219">                .collect(Collectors.toList());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;TournamentLeaderboardEntryDTO&gt; getLeaderboard(Long tournamentId) {
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">        if (!tournamentRepository.existsById(tournamentId)) {</span>
+<span class="nc" id="L225">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;);</span>
+        }
+
+<span class="fc" id="L228">        List&lt;TournamentParticipant&gt; participants = </span>
+<span class="fc" id="L229">                participantRepository.findByIdTournamentIdOrderByUserScoreDesc(tournamentId);</span>
+
+<span class="fc" id="L231">        return IntStream.range(0, participants.size())</span>
+<span class="fc" id="L232">                .mapToObj(i -&gt; {</span>
+<span class="fc" id="L233">                    TournamentParticipant p = participants.get(i);</span>
+<span class="fc" id="L234">                    User user = p.getUser();</span>
+<span class="fc" id="L235">                    return new TournamentLeaderboardEntryDTO(</span>
+<span class="fc" id="L236">                            i + 1,</span>
+<span class="fc" id="L237">                            p.getId().getUserId(),</span>
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">                            user != null ? user.getUsername() : null,</span>
+<span class="fc" id="L239">                            p.getUserScore()</span>
+                    );
+                })
+<span class="fc" id="L242">                .collect(Collectors.toList());</span>
+    }
+
+    @Transactional
+    public void updateParticipantScore(Long tournamentId, Long userId, Integer scoreToAdd) {
+<span class="nc" id="L247">        TournamentParticipantId id = new TournamentParticipantId(tournamentId, userId);</span>
+<span class="nc" id="L248">        TournamentParticipant participant = participantRepository.findById(id)</span>
+<span class="nc" id="L249">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Participant not found&quot;));</span>
+
+<span class="nc" id="L251">        participant.setUserScore(participant.getUserScore() + scoreToAdd);</span>
+<span class="nc" id="L252">        participantRepository.save(participant);</span>
+<span class="nc" id="L253">    }</span>
+
+    @Transactional
+    public void deleteTournament(Long tournamentId) {
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        if (!tournamentRepository.existsById(tournamentId)) {</span>
+<span class="nc" id="L258">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Tournament not found&quot;);</span>
+        }
+<span class="nc" id="L260">        tournamentRepository.deleteById(tournamentId);</span>
+<span class="nc" id="L261">    }</span>
+
+    // ---------------- helpers ----------------
+
+    private TournamentResponseDTO mapToResponseDTO(Tournament tournament) {
+<span class="fc" id="L266">        User creator = tournament.getOwner();</span>
+<span class="fc" id="L267">        String creatorUsername = null;</span>
+<span class="pc bpc" id="L268" title="1 of 4 branches missed.">        if (creator == null &amp;&amp; tournament.getOwnerId() != null) {</span>
+<span class="fc" id="L269">            creator = userRepository.findById(tournament.getOwnerId()).orElse(null);</span>
+        }
+<span class="pc bpc" id="L271" title="1 of 2 branches missed.">        if (creator != null) {</span>
+<span class="nc" id="L272">            creatorUsername = creator.getUsername();</span>
+        }
+
+<span class="fc" id="L275">        int participantCount = participantRepository.countByIdTournamentId(tournament.getId());</span>
+
+<span class="fc" id="L277">        return new TournamentResponseDTO(</span>
+<span class="fc" id="L278">                tournament.getId(),</span>
+<span class="fc" id="L279">                tournament.getName(),</span>
+<span class="fc" id="L280">                tournament.getDescription(),</span>
+<span class="fc" id="L281">                tournament.getPlaylistId(),</span>
+<span class="fc" id="L282">                tournament.getOwnerId(),</span>
+                creatorUsername,
+<span class="fc" id="L284">                tournament.getState(),</span>
+<span class="fc" id="L285">                tournament.getCreatedAt(),</span>
+<span class="fc" id="L286">                tournament.getStartDate(),</span>
+<span class="fc" id="L287">                tournament.getEndDate(),</span>
+<span class="fc" id="L288">                participantCount</span>
+        );
+    }
+
+    private TournamentParticipantDTO mapToParticipantDTO(TournamentParticipant participant) {
+<span class="nc" id="L293">        User user = participant.getUser();</span>
+<span class="nc" id="L294">        return new TournamentParticipantDTO(</span>
+<span class="nc" id="L295">                participant.getId().getUserId(),</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">                user != null ? user.getUsername() : null,</span>
+<span class="nc" id="L297">                participant.getUserScore()</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

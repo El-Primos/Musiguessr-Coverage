@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="tr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlaylistService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">MusiGuessr Backend</a> &gt; <a href="index.source.html" class="el_package">com.musiguessr.backend.service</a> &gt; <span class="el_source">PlaylistService.java</span></div><h1>PlaylistService.java</h1><pre class="source lang-java linenums">package com.musiguessr.backend.service;
+
+import com.musiguessr.backend.dto.artist.ArtistResponseDTO;
+import com.musiguessr.backend.dto.genre.GenreResponseDTO;
+import com.musiguessr.backend.dto.music.MusicResponseDTO;
+import com.musiguessr.backend.dto.playlist.*;
+import com.musiguessr.backend.model.*;
+import com.musiguessr.backend.repository.MusicRepository;
+import com.musiguessr.backend.repository.PlaylistItemRepository;
+import com.musiguessr.backend.repository.PlaylistRepository;
+import com.musiguessr.backend.security.CustomUserDetails;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+@Service
+@RequiredArgsConstructor
+public class PlaylistService {
+
+    private final PlaylistRepository playlistRepository;
+    private final PlaylistItemRepository playlistItemRepository;
+    private final MusicRepository musicRepository;
+
+    @Transactional(readOnly = true)
+    public List&lt;PlaylistResponseDTO&gt; getPlaylists(Long ownerId, String name, Integer limit, Integer offset) {
+<span class="fc" id="L37">        Stream&lt;Playlist&gt; stream = playlistRepository.findAll().stream();</span>
+
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">        if (ownerId != null) stream = stream.filter(p -&gt; Objects.equals(p.getOwnerId(), ownerId));</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        if (StringUtils.hasText(name)) {</span>
+<span class="fc" id="L41">            String needle = name.trim().toLowerCase();</span>
+<span class="pc bpc" id="L42" title="1 of 4 branches missed.">            stream = stream.filter(p -&gt; p.getName() != null &amp;&amp; p.getName().toLowerCase().contains(needle));</span>
+        }
+
+<span class="pc bpc" id="L45" title="2 of 4 branches missed.">        int safeOffset = (offset == null || offset &lt; 0) ? 0 : offset;</span>
+<span class="pc bpc" id="L46" title="2 of 4 branches missed.">        int safeLimit = (limit == null || limit &lt; 0) ? 50 : limit;</span>
+
+<span class="fc" id="L48">        return stream.skip(safeOffset).limit(safeLimit)</span>
+<span class="fc" id="L49">                .map(this::mapToDTO)</span>
+<span class="fc" id="L50">                .collect(Collectors.toList());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public PlaylistResponseDTO getPlaylistById(Long id) {
+<span class="nc" id="L55">        Playlist playlist = playlistRepository.findById(id)</span>
+<span class="nc" id="L56">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Playlist not found&quot;));</span>
+<span class="nc" id="L57">        return mapToDTO(playlist);</span>
+    }
+
+    @Transactional
+    public PlaylistResponseDTO createPlaylist(PlaylistRequestDTO request) {
+<span class="fc" id="L62">        Playlist playlist = new Playlist();</span>
+<span class="fc" id="L63">        playlist.setName(request.getName());</span>
+<span class="fc" id="L64">        playlist.setOwnerId(request.getOwnerId());</span>
+
+        try {
+<span class="fc" id="L67">            Playlist saved = playlistRepository.save(playlist);</span>
+<span class="fc" id="L68">            return mapToDTO(&quot;Playlist created&quot;, saved);</span>
+<span class="nc" id="L69">        } catch (Exception e) {</span>
+<span class="nc" id="L70">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Playlist name already exists for this user&quot;);</span>
+        }
+    }
+
+    @Transactional
+    public PlaylistResponseDTO createRandomPlaylist(PlaylistRandomRequestDTO request) {
+<span class="fc" id="L76">        var criteria = request.getCriteria();</span>
+
+<span class="pc bpc" id="L78" title="3 of 4 branches missed.">        List&lt;Long&gt; genres = (criteria != null &amp;&amp; criteria.getGenres() != null)</span>
+<span class="nc" id="L79">                ? criteria.getGenres()</span>
+<span class="fc" id="L80">                : Collections.emptyList();</span>
+
+<span class="pc bpc" id="L82" title="3 of 4 branches missed.">        List&lt;Long&gt; artists = (criteria != null &amp;&amp; criteria.getArtists() != null)</span>
+<span class="nc" id="L83">                ? criteria.getArtists()</span>
+<span class="fc" id="L84">                : Collections.emptyList();</span>
+
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">        boolean filterGenres = !genres.isEmpty();</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        boolean filterArtists = !artists.isEmpty();</span>
+
+<span class="fc" id="L89">        List&lt;MusicRepository.ProfileProjection&gt; musics = musicRepository.findRandomMusics(</span>
+<span class="fc" id="L90">                request.getLength(),</span>
+                genres,
+                filterGenres,
+                artists,
+                filterArtists
+        );
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        if (musics.isEmpty()) {</span>
+<span class="nc" id="L97">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;No music available&quot;);</span>
+        }
+
+<span class="fc" id="L100">        Playlist playlist = new Playlist();</span>
+<span class="fc" id="L101">        playlist.setName(request.getName());</span>
+<span class="fc" id="L102">        playlist.setOwnerId(getOwnerId());</span>
+
+<span class="fc" id="L104">        Playlist savedPlaylist = playlistRepository.save(playlist);</span>
+<span class="fc" id="L105">        Long playlistId = savedPlaylist.getId();</span>
+
+
+<span class="fc" id="L108">        List&lt;PlaylistItemRequestDTO&gt; items = IntStream.range(0, musics.size())</span>
+<span class="fc" id="L109">                .mapToObj(i -&gt; {</span>
+<span class="fc" id="L110">                    MusicRepository.ProfileProjection music = musics.get(i);</span>
+
+<span class="fc" id="L112">                    PlaylistItemRequestDTO dto = new PlaylistItemRequestDTO();</span>
+<span class="fc" id="L113">                    dto.setSongId(music.getId());</span>
+<span class="fc" id="L114">                    dto.setPosition(i + 1);</span>
+<span class="fc" id="L115">                    return dto;</span>
+                })
+<span class="fc" id="L117">                .toList();</span>
+
+<span class="fc" id="L119">        PlaylistBatchItemRequestDTO batchRequest = new PlaylistBatchItemRequestDTO();</span>
+<span class="fc" id="L120">        batchRequest.setItems(items);</span>
+
+<span class="fc" id="L122">        addSongsToPlaylist(playlistId, batchRequest);</span>
+
+<span class="fc" id="L124">        return mapToDTO(savedPlaylist);</span>
+    }
+
+    @Transactional
+    public Long createRandomPlaylist(String name, Integer playlistLength) {
+<span class="nc" id="L129">        List&lt;MusicRepository.ProfileProjection&gt; musics = musicRepository.findRandomMusics(</span>
+                playlistLength,
+                null,
+                false,
+                null,
+                false
+        );
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if (musics.isEmpty()) {</span>
+<span class="nc" id="L137">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;No music available&quot;);</span>
+        }
+
+<span class="nc" id="L140">        Playlist playlist = new Playlist();</span>
+<span class="nc" id="L141">        playlist.setName(name);</span>
+<span class="nc" id="L142">        playlist.setOwnerId(getOwnerId());</span>
+
+<span class="nc" id="L144">        Playlist savedPlaylist = playlistRepository.save(playlist);</span>
+<span class="nc" id="L145">        Long playlistId = savedPlaylist.getId();</span>
+
+<span class="nc" id="L147">        List&lt;PlaylistItemRequestDTO&gt; items = IntStream.range(0, musics.size())</span>
+<span class="nc" id="L148">                .mapToObj(i -&gt; {</span>
+<span class="nc" id="L149">                    MusicRepository.ProfileProjection music = musics.get(i);</span>
+
+<span class="nc" id="L151">                    PlaylistItemRequestDTO dto = new PlaylistItemRequestDTO();</span>
+<span class="nc" id="L152">                    dto.setSongId(music.getId());</span>
+<span class="nc" id="L153">                    dto.setPosition(i + 1);</span>
+<span class="nc" id="L154">                    return dto;</span>
+                })
+<span class="nc" id="L156">                .toList();</span>
+
+<span class="nc" id="L158">        PlaylistBatchItemRequestDTO batchRequest = new PlaylistBatchItemRequestDTO();</span>
+<span class="nc" id="L159">        batchRequest.setItems(items);</span>
+
+<span class="nc" id="L161">        addSongsToPlaylist(playlistId, batchRequest);</span>
+
+<span class="nc" id="L163">        return playlistId;</span>
+    }
+
+    @Transactional
+    public PlaylistResponseDTO updatePlaylist(Long id, PlaylistUpdateRequestDTO request) {
+<span class="nc" id="L168">        Playlist playlist = playlistRepository.findById(id)</span>
+<span class="nc" id="L169">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Playlist not found&quot;));</span>
+
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (StringUtils.hasText(request.getName())) {</span>
+<span class="nc" id="L172">            playlist.setName(request.getName());</span>
+        }
+
+        try {
+<span class="nc" id="L176">            Playlist updated = playlistRepository.save(playlist);</span>
+<span class="nc" id="L177">            return mapToDTO(&quot;Playlist updated&quot;, updated);</span>
+<span class="nc" id="L178">        } catch (Exception e) {</span>
+<span class="nc" id="L179">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Playlist name already exists for this user&quot;);</span>
+        }
+    }
+
+    @Transactional
+    public void deletePlaylist(Long id) {
+<span class="nc" id="L185">        Playlist playlist = playlistRepository.findById(id)</span>
+<span class="nc" id="L186">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Playlist not found&quot;));</span>
+
+<span class="nc" id="L188">        playlistRepository.delete(playlist);</span>
+<span class="nc" id="L189">    }</span>
+
+    @Transactional(readOnly = true)
+    public List&lt;MusicResponseDTO&gt; getPlaylistSongs(Long playlistId) {
+<span class="nc" id="L193">        ensurePlaylistExists(playlistId);</span>
+
+<span class="nc" id="L195">        return playlistItemRepository.findByIdPlaylistIdOrderByIdPositionAsc(playlistId).stream()</span>
+<span class="nc" id="L196">                .map(PlaylistItem::getMusic)</span>
+<span class="nc" id="L197">                .map(this::mapMusicToDTO)</span>
+<span class="nc" id="L198">                .collect(Collectors.toList());</span>
+    }
+
+    @Transactional
+    public void addSongToPlaylist(Long playlistId, PlaylistItemRequestDTO request) {
+<span class="fc" id="L203">        Playlist playlist = playlistRepository.findById(playlistId)</span>
+<span class="pc" id="L204">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Playlist not found&quot;));</span>
+
+<span class="fc" id="L206">        Music music = musicRepository.findById(request.getSongId())</span>
+<span class="pc" id="L207">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Music not found&quot;));</span>
+
+<span class="fc bfc" id="L209" title="All 2 branches covered.">        if (playlistItemRepository.existsByIdPlaylistIdAndMusicId(playlistId, music.getId())) {</span>
+<span class="fc" id="L210">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Song already in playlist&quot;);</span>
+        }
+
+        int position;
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">        if (request.getPosition() != null) {</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">            if (request.getPosition() &lt; 1) {</span>
+<span class="nc" id="L216">                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Position must be &gt; 0&quot;);</span>
+            }
+<span class="nc" id="L218">            boolean positionTaken = playlistItemRepository.existsById(new PlaylistItemId(playlistId, request.getPosition()));</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">            if (positionTaken) {</span>
+<span class="nc" id="L220">                throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Position already taken&quot;);</span>
+            }
+<span class="nc" id="L222">            position = request.getPosition();</span>
+<span class="nc" id="L223">        } else {</span>
+            // max+1
+<span class="fc" id="L225">            Integer max = playlistItemRepository.findMaxPositionByPlaylistId(playlistId);</span>
+<span class="fc" id="L226">            position = max + 1;</span>
+        }
+
+<span class="fc" id="L229">        PlaylistItem item = new PlaylistItem();</span>
+<span class="fc" id="L230">        item.setId(new PlaylistItemId(playlistId, position));</span>
+<span class="fc" id="L231">        item.setPlaylist(playlist);</span>
+<span class="fc" id="L232">        item.setMusicId(music.getId());</span>
+
+<span class="fc" id="L234">        playlistItemRepository.save(item);</span>
+<span class="fc" id="L235">    }</span>
+
+    @Transactional
+    public void addSongsToPlaylist(Long playlistId, PlaylistBatchItemRequestDTO request) {
+<span class="fc" id="L239">        Playlist playlist = playlistRepository.findById(playlistId)</span>
+<span class="pc" id="L240">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Playlist not found&quot;));</span>
+
+<span class="fc" id="L242">        List&lt;Long&gt; requestedMusicIds =</span>
+<span class="fc" id="L243">                request.getItems().stream().map(PlaylistItemRequestDTO::getSongId).distinct().toList();</span>
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">        if (requestedMusicIds.size() &lt; request.getItems().size()) {</span>
+<span class="nc" id="L245">            throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Request contains duplicate items&quot;);</span>
+        }
+
+<span class="fc" id="L248">        List&lt;Music&gt; foundMusics = musicRepository.findAllById(requestedMusicIds);</span>
+
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">        if (foundMusics.size() != requestedMusicIds.size()) {</span>
+<span class="nc" id="L251">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Some songs not found&quot;);</span>
+        }
+
+<span class="fc" id="L254">        Set&lt;Long&gt; existingMusicIdsInPlaylist = playlistItemRepository.findMusicIdsByPlaylistId(playlistId);</span>
+<span class="fc" id="L255">        Set&lt;Integer&gt; positions = playlistItemRepository.findPositionsByPlaylistId(playlistId);</span>
+
+<span class="fc" id="L257">        Integer dbMaxPosition = playlistItemRepository.findMaxPositionByPlaylistId(playlistId);</span>
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">        int currentMaxPosition = (dbMaxPosition != null) ? dbMaxPosition : 0;</span>
+
+<span class="fc" id="L260">        List&lt;PlaylistItem&gt; itemsToSave = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L262">        Set&lt;Integer&gt; processedPositionsInBatch = new HashSet&lt;&gt;();</span>
+
+<span class="fc bfc" id="L264" title="All 2 branches covered.">        for (PlaylistItemRequestDTO req : request.getItems()) {</span>
+<span class="pc bpc" id="L265" title="1 of 2 branches missed.">            if (existingMusicIdsInPlaylist.contains(req.getSongId())) {</span>
+<span class="nc" id="L266">                throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Song &quot; + req.getSongId() + &quot; already in &quot; +</span>
+                        &quot;playlist&quot;);
+            }
+
+            int finalPosition;
+<span class="fc bfc" id="L271" title="All 2 branches covered.">            if (req.getPosition() != null) {</span>
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">                if (req.getPosition() &lt; 1) {</span>
+<span class="nc" id="L273">                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Position must be &gt; 0&quot;);</span>
+                }
+<span class="pc bpc" id="L275" title="2 of 4 branches missed.">                if (positions.contains(req.getPosition()) || processedPositionsInBatch.contains(req.getPosition())) {</span>
+<span class="nc" id="L276">                    throw new ResponseStatusException(HttpStatus.CONFLICT, &quot;Position &quot; + req.getPosition() + &quot; is already taken&quot;);</span>
+                }
+<span class="fc" id="L278">                finalPosition = req.getPosition();</span>
+            } else {
+                do {
+<span class="fc" id="L281">                    currentMaxPosition++;</span>
+<span class="pc bpc" id="L282" title="2 of 4 branches missed.">                } while (positions.contains(currentMaxPosition) || processedPositionsInBatch.contains(currentMaxPosition));</span>
+<span class="fc" id="L283">                finalPosition = currentMaxPosition;</span>
+            }
+
+<span class="fc" id="L286">            processedPositionsInBatch.add(finalPosition);</span>
+
+<span class="fc" id="L288">            PlaylistItem item = new PlaylistItem();</span>
+<span class="fc" id="L289">            item.setId(new PlaylistItemId(playlistId, finalPosition));</span>
+<span class="fc" id="L290">            item.setPlaylist(playlist);</span>
+<span class="fc" id="L291">            item.setMusicId(req.getSongId());</span>
+
+<span class="fc" id="L293">            itemsToSave.add(item);</span>
+<span class="fc" id="L294">        }</span>
+
+<span class="fc" id="L296">        playlistItemRepository.saveAll(itemsToSave);</span>
+<span class="fc" id="L297">    }</span>
+
+    @Transactional
+    public void removeSongFromPlaylist(Long playlistId, Long songId) {
+<span class="fc" id="L301">        ensurePlaylistExists(playlistId);</span>
+
+<span class="fc" id="L303">        PlaylistItem item = playlistItemRepository.findByIdPlaylistIdAndMusicId(playlistId, songId)</span>
+<span class="pc" id="L304">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Song not in playlist&quot;));</span>
+
+<span class="fc" id="L306">        playlistItemRepository.delete(item);</span>
+<span class="fc" id="L307">    }</span>
+
+    @Transactional
+    public void reorder(Long playlistId, PlaylistBatchItemRequestDTO request) {
+<span class="fc" id="L311">        Playlist playlist = playlistRepository.findById(playlistId)</span>
+<span class="pc" id="L312">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Playlist not found&quot;));</span>
+
+<span class="fc" id="L314">        List&lt;PlaylistItem&gt; current = playlistItemRepository.findByIdPlaylistIdOrderByIdPositionAsc(playlistId);</span>
+<span class="fc" id="L315">        Map&lt;Long, Music&gt; currentMusicById = current.stream()</span>
+<span class="fc" id="L316">                .map(PlaylistItem::getMusic)</span>
+<span class="fc" id="L317">                .collect(Collectors.toMap(Music::getId, m -&gt; m));</span>
+
+<span class="fc bfc" id="L319" title="All 2 branches covered.">        for (PlaylistItemRequestDTO it : request.getItems()) {</span>
+<span class="pc bpc" id="L320" title="2 of 4 branches missed.">            if (it.getPosition() == null || it.getPosition() &lt; 1) {</span>
+<span class="nc" id="L321">                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Position must be &gt; 0&quot;);</span>
+            }
+<span class="pc bpc" id="L323" title="1 of 2 branches missed.">            if (!currentMusicById.containsKey(it.getSongId())) {</span>
+<span class="nc" id="L324">                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Song not in playlist&quot;);</span>
+            }
+<span class="fc" id="L326">        }</span>
+
+<span class="fc" id="L328">        playlistItemRepository.deleteAll(current);</span>
+
+<span class="fc" id="L330">        List&lt;PlaylistItem&gt; recreated = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L331" title="All 2 branches covered.">        for (PlaylistItemRequestDTO it : request.getItems()) {</span>
+<span class="fc" id="L332">            PlaylistItem pi = new PlaylistItem();</span>
+<span class="fc" id="L333">            pi.setId(new PlaylistItemId(playlistId, it.getPosition()));</span>
+<span class="fc" id="L334">            pi.setPlaylist(playlist);</span>
+<span class="fc" id="L335">            pi.setMusic(currentMusicById.get(it.getSongId()));</span>
+<span class="fc" id="L336">            recreated.add(pi);</span>
+<span class="fc" id="L337">        }</span>
+
+<span class="fc" id="L339">        playlistItemRepository.saveAll(recreated);</span>
+<span class="fc" id="L340">    }</span>
+
+    private void ensurePlaylistExists(Long playlistId) {
+<span class="pc bpc" id="L343" title="1 of 2 branches missed.">        if (!playlistRepository.existsById(playlistId)) {</span>
+<span class="nc" id="L344">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Playlist not found&quot;);</span>
+        }
+<span class="fc" id="L346">    }</span>
+
+    private static Long getOwnerId() {
+<span class="fc" id="L349">        Long ownerId = 0L;</span>
+
+<span class="fc" id="L351">        Authentication auth = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="pc bpc" id="L352" title="5 of 6 branches missed.">        if (auth != null &amp;&amp; auth.isAuthenticated() &amp;&amp; !(auth instanceof AnonymousAuthenticationToken)) {</span>
+<span class="nc" id="L353">            CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();</span>
+<span class="nc" id="L354">            User user = userDetails.user();</span>
+
+<span class="nc bnc" id="L356" title="All 2 branches missed.">            if (Objects.equals(user.getRole(), UserRole.BANNED)) {</span>
+<span class="nc" id="L357">                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,</span>
+                        &quot;Your account is disabled. Please contact support.&quot;);
+            }
+
+<span class="nc bnc" id="L361" title="All 2 branches missed.">            if (user.getRole() == UserRole.ADMIN) {</span>
+<span class="nc" id="L362">                ownerId = user.getId();</span>
+            }
+        }
+
+<span class="fc" id="L366">        return ownerId;</span>
+    }
+
+    private PlaylistResponseDTO mapToDTO(Playlist playlist) {
+<span class="fc" id="L370">        return new PlaylistResponseDTO(</span>
+<span class="fc" id="L371">                playlist.getId(),</span>
+<span class="fc" id="L372">                playlist.getName(),</span>
+<span class="fc" id="L373">                playlist.getOwnerId()</span>
+        );
+    }
+
+    private PlaylistResponseDTO mapToDTO(String message, Playlist playlist) {
+<span class="fc" id="L378">        return new PlaylistResponseDTO(</span>
+                message,
+<span class="fc" id="L380">                playlist.getId(),</span>
+<span class="fc" id="L381">                playlist.getName(),</span>
+<span class="fc" id="L382">                playlist.getOwnerId()</span>
+        );
+    }
+
+    private MusicResponseDTO mapMusicToDTO(Music music) {
+<span class="nc bnc" id="L387" title="All 2 branches missed.">        GenreResponseDTO genreDTO = (music.getGenre() != null)</span>
+<span class="nc" id="L388">                ? new GenreResponseDTO(music.getGenreId(), music.getGenre().getName())</span>
+<span class="nc" id="L389">                : null;</span>
+
+<span class="nc bnc" id="L391" title="All 2 branches missed.">        ArtistResponseDTO artistDTO = (music.getArtist() != null)</span>
+<span class="nc" id="L392">                ? new ArtistResponseDTO(music.getArtistId(), music.getArtist().getName())</span>
+<span class="nc" id="L393">                : null;</span>
+
+<span class="nc" id="L395">        return new MusicResponseDTO(</span>
+<span class="nc" id="L396">                music.getId(),</span>
+<span class="nc" id="L397">                music.getName(),</span>
+<span class="nc" id="L398">                music.getUrl(),</span>
+                genreDTO,
+                artistDTO
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
